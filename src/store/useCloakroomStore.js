@@ -1,30 +1,28 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 
-// Store principal para gestión local + remota simulada de prendas
+// Store principal para gestión local + remota de prendas (Gestión Exclusiva Operativa)
 export const useCloakroomStore = create((set, get) => ({
   items: [],
   isLoading: false,
   error: null,
 
   // Agregar nueva prenda (Staff)
-  addItem: async (code, isFree = false) => {
+  addItem: async (code) => {
     set({ isLoading: true, error: null });
     try {
       const newItem = {
         id: crypto.randomUUID(),
         code,
         status: 'deposited',
-        is_free: isFree,
         created_at: new Date().toISOString()
       };
 
-      // Intentamos insertar en Supabase, si falla o usamos mock, guardamos en state
+      // Intentamos insertar en Supabase, si falla o usamos mock, guardamos en state local
       const { data, error } = await supabase.from('cloakroom_items').insert([newItem]).select();
       
       if (error) {
         console.warn("No se pudo insertar en Supabase, usando estado mock", error);
-        // Fallback a Store local si Supabase no está configurado (Mock mode)
         set((state) => ({ items: [...state.items, newItem], isLoading: false }));
         return newItem;
       }
@@ -47,7 +45,6 @@ export const useCloakroomStore = create((set, get) => ({
         .select();
 
       if (error) {
-        // Fallback Mock
         set((state) => ({
           items: state.items.map(item => item.code === code ? { ...item, status: 'retrieved' } : item),
           isLoading: false
@@ -65,14 +62,16 @@ export const useCloakroomStore = create((set, get) => ({
     }
   },
 
-  // Obtener métricas para admin
+  // Obtener métricas de operación
   getMetrics: () => {
     const items = get().items;
     const activeItems = items.filter(i => i.status === 'deposited').length;
     const retrievedItems = items.filter(i => i.status === 'retrieved').length;
-    // Mock base 1500 per item not free
-    const revenue = items.filter(i => !i.is_free).length * 1500; 
-
-    return { total: items.length, active: activeItems, retrieved: retrievedItems, revenue };
+    
+    return { 
+      total: items.length, 
+      active: activeItems, 
+      retrieved: retrievedItems 
+    };
   }
 }));
